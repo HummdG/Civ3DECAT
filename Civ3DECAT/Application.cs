@@ -10,6 +10,13 @@ using Autodesk.AutoCAD.Geometry;
 using System.Linq;
 using Autodesk.Civil.Settings;
 using System.Reflection;
+using System.Collections.Generic;
+
+// Add alias directives to resolve ambiguous references
+using WinForms = System.Windows.Forms;
+using DrawingFont = System.Drawing.Font;
+using DrawingColor = System.Drawing.Color;
+using DrawingSize = System.Drawing.Size;
 
 namespace Civ3DECAT
 {
@@ -63,7 +70,7 @@ namespace Civ3DECAT
             // Create Manhole Volumes button
             RibbonButton volumeButton = new RibbonButton
             {
-                Text = "ECAT",
+                Text = "Manhole Volumes",
                 ShowText = true,
                 ShowImage = true,
                 Size = RibbonItemSize.Large,
@@ -73,10 +80,148 @@ namespace Civ3DECAT
             panelSource.Items.Add(volumeButton);
         }
 
+        // Model class for manhole volume data
+        public class ManholeVolumeData
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Network { get; set; } = string.Empty;
+            public double Height { get; set; }
+            public double InnerDiameter { get; set; }
+            public double WallThickness { get; set; }
+            public double WallVolume { get; set; }
+            public double BottomSlabVolume { get; set; }
+            public double CoverVolume { get; set; }
+            public double ConeVolume { get; set; }
+            public double VoidVolume { get; set; }
+            public double TotalConcreteVolume { get; set; }
+            public bool IsTotal { get; set; } = false;
+        }
+
+        // Windows Forms dialog for displaying manhole volume report
+        public class ManholeVolumeReportForm : WinForms.Form
+        {
+            private WinForms.DataGridView dataGridView;
+            private WinForms.Label totalLabel;
+
+            public ManholeVolumeReportForm()
+            {
+                Text = "Manhole Volume Report";
+                Size = new DrawingSize(1000, 600);
+                StartPosition = WinForms.FormStartPosition.CenterScreen;
+
+                // Create layout
+                var mainLayout = new WinForms.TableLayoutPanel
+                {
+                    Dock = WinForms.DockStyle.Fill,
+                    RowCount = 2,
+                    ColumnCount = 1
+                };
+                mainLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 90F));
+                mainLayout.RowStyles.Add(new WinForms.RowStyle(WinForms.SizeType.Percent, 10F));
+                Controls.Add(mainLayout);
+
+                // Create data grid
+                dataGridView = new WinForms.DataGridView
+                {
+                    Dock = WinForms.DockStyle.Fill,
+                    AllowUserToAddRows = false,
+                    AllowUserToDeleteRows = false,
+                    ReadOnly = true,
+                    AutoSizeColumnsMode = WinForms.DataGridViewAutoSizeColumnsMode.Fill,
+                    AlternatingRowsDefaultCellStyle = new WinForms.DataGridViewCellStyle { BackColor = DrawingColor.AliceBlue }
+                };
+
+                // Add columns
+                dataGridView.Columns.Add("Name", "Manhole");
+                dataGridView.Columns.Add("Network", "Network");
+                dataGridView.Columns.Add("Height", "Height (m)");
+                /*dataGridView.Columns.Add("InnerDiameter", "Inner Diameter (m)");
+                dataGridView.Columns.Add("WallThickness", "Wall Thickness (m)");
+                dataGridView.Columns.Add("WallVolume", "Wall Volume (m³)");
+                dataGridView.Columns.Add("BottomSlabVolume", "Bottom Slab Volume (m³)");
+                dataGridView.Columns.Add("CoverVolume", "Cover Volume (m³)");
+                dataGridView.Columns.Add("ConeVolume", "Cone Volume (m³)");
+                dataGridView.Columns.Add("VoidVolume", "Void Volume (m³)");*/
+                dataGridView.Columns.Add("TotalConcreteVolume", "Total Concrete (m³)");
+
+                mainLayout.Controls.Add(dataGridView, 0, 0);
+
+                // Create bottom panel
+                var bottomPanel = new WinForms.FlowLayoutPanel
+                {
+                    Dock = WinForms.DockStyle.Fill,
+                    FlowDirection = WinForms.FlowDirection.RightToLeft
+                };
+
+                var closeButton = new WinForms.Button
+                {
+                    Text = "Close",
+                    Padding = new WinForms.Padding(10, 5, 10, 5),
+                    Margin = new WinForms.Padding(10)
+                };
+                closeButton.Click += (s, e) => Close();
+
+                totalLabel = new WinForms.Label
+                {
+                    Font = new DrawingFont(Font, System.Drawing.FontStyle.Bold),
+                    Margin = new WinForms.Padding(10),
+                    TextAlign = System.Drawing.ContentAlignment.MiddleRight,
+                    AutoSize = true
+                };
+
+                bottomPanel.Controls.Add(closeButton);
+                bottomPanel.Controls.Add(totalLabel);
+                mainLayout.Controls.Add(bottomPanel, 0, 1);
+            }
+
+            public void AddManholeData(ManholeVolumeData data)
+            {
+                int rowIndex = dataGridView.Rows.Add();
+                var row = dataGridView.Rows[rowIndex];
+
+                row.Cells["Name"].Value = data.Name;
+                row.Cells["Network"].Value = data.Network;
+                row.Cells["Height"].Value = data.Height.ToString("F2");
+                /* row.Cells["InnerDiameter"].Value = data.InnerDiameter.ToString("F2");
+                row.Cells["WallThickness"].Value = data.WallThickness.ToString("F2");
+                row.Cells["WallVolume"].Value = data.WallVolume.ToString("F2");
+                row.Cells["BottomSlabVolume"].Value = data.BottomSlabVolume.ToString("F2");
+                row.Cells["CoverVolume"].Value = data.CoverVolume.ToString("F2");
+                row.Cells["ConeVolume"].Value = data.ConeVolume.ToString("F2");
+                row.Cells["VoidVolume"].Value = data.VoidVolume.ToString("F2"); */
+                row.Cells["TotalConcreteVolume"].Value = data.TotalConcreteVolume.ToString("F2");
+
+                if (data.IsTotal)
+                {
+                    row.DefaultCellStyle.Font = new DrawingFont(dataGridView.Font, System.Drawing.FontStyle.Bold);
+                    row.DefaultCellStyle.BackColor = DrawingColor.LightGray;
+                }
+
+                UpdateTotalLabel();
+            }
+
+            private void UpdateTotalLabel()
+            {
+                double total = 0;
+
+                foreach (WinForms.DataGridViewRow row in dataGridView.Rows)
+                {
+                    if (row.DefaultCellStyle.Font != null && row.DefaultCellStyle.Font.Bold)
+                    {
+                        string valueStr = row.Cells["TotalConcreteVolume"].Value?.ToString() ?? "0";
+                        if (double.TryParse(valueStr, out double value))
+                        {
+                            total += value;
+                        }
+                    }
+                }
+
+                totalLabel.Text = $"Total Concrete Volume: {total:F2} m³";
+            }
+        }
+
         public class ManholeVolumeCommandHandler : System.Windows.Input.ICommand
         {
-            // Fix for CS9067: Add a handler implementation to suppress the warning
-            // about the event never being used
             public event EventHandler? CanExecuteChanged
             {
                 add { /* No need to do anything here */ }
@@ -105,7 +250,6 @@ namespace Civ3DECAT
             {
                 try
                 {
-                    // Get the current AutoCAD and Civil 3D documents
                     var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
                     var cdoc = CivilApplication.ActiveDocument;
 
@@ -115,10 +259,11 @@ namespace Civ3DECAT
                         return;
                     }
 
-                    // Start a transaction
+                    // Create Windows Forms dialog to display results
+                    var reportForm = new ManholeVolumeReportForm();
+
                     using (var transaction = doc.TransactionManager.StartTransaction())
                     {
-                        // Get all pipe networks in the document
                         var pipeNetworkIds = cdoc.GetPipeNetworkIds();
 
                         if (pipeNetworkIds.Count == 0)
@@ -128,60 +273,49 @@ namespace Civ3DECAT
                             return;
                         }
 
-                        StringBuilder resultBuilder = new StringBuilder();
-                        resultBuilder.AppendLine("MANHOLE VOLUME REPORT");
-                        resultBuilder.AppendLine("=====================");
-                        resultBuilder.AppendLine();
-
-                        int totalManholes = 0;
-                        double totalWallVolume = 0;
-                        double totalCoverVolume = 0;
-                        double totalConeVolume = 0;
-                        double totalBottomSlabVolume = 0;
-                        double totalVoidVolume = 0;
-                        double totalConcreteVolume = 0;
-
-                        // Process each pipe network
                         foreach (ObjectId networkId in pipeNetworkIds)
                         {
-                            // Fix for CS8600: Use 'as' with null check instead of casting
                             var network = transaction.GetObject(networkId, OpenMode.ForRead) as Network;
                             if (network == null) continue;
 
-                            resultBuilder.AppendLine($"Network: {network.Name}");
-                            resultBuilder.AppendLine("------------------");
-
                             var structureIds = network.GetStructureIds();
+
+                            int networkManholeCount = 0;
+                            double networkWallVolume = 0;
+                            double networkBottomSlabVolume = 0;
+                            double networkCoverVolume = 0;
+                            double networkConeVolume = 0;
+                            double networkVoidVolume = 0;
+                            double networkConcreteVolume = 0;
 
                             foreach (ObjectId structureId in structureIds)
                             {
-                                // Fix for CS8600: Use 'as' with null check instead of casting
                                 var structure = transaction.GetObject(structureId, OpenMode.ForRead) as Structure;
                                 if (structure == null) continue;
 
                                 if (IsManholeStructure(structure, transaction))
                                 {
-                                    totalManholes++;
+                                    networkManholeCount++;
 
-                                    // Try to get the volume directly from the 3D solid if available
+                                    var manholeData = new ManholeVolumeData
+                                    {
+                                        Name = structure.Name,
+                                        Network = network.Name,
+                                        Height = structure.RimElevation - structure.SumpElevation
+                                    };
+
                                     double solidVolume = GetStructureSolidVolume(structure, transaction);
 
                                     if (solidVolume > 0)
                                     {
-                                        // We have a direct solid volume, use it
-                                        totalConcreteVolume += solidVolume;
-
-                                        resultBuilder.AppendLine($"Manhole: {structure.Name}");
-                                        resultBuilder.AppendLine($"  Height: {(structure.RimElevation - structure.SumpElevation):F2} m");
-                                        resultBuilder.AppendLine($"  Volume (from 3D solid): {solidVolume:F2} m³");
-                                        resultBuilder.AppendLine();
+                                        manholeData.TotalConcreteVolume = solidVolume;
+                                        networkConcreteVolume += solidVolume;
+                                        reportForm.AddManholeData(manholeData);
                                     }
                                     else
                                     {
-                                        // Get dimensions from the structure
                                         ManholeDimensions dimensions = GetManholeDimensions(structure, transaction);
 
-                                        // Calculate manhole height
                                         double height = structure.RimElevation - structure.SumpElevation;
                                         double barrelHeight = height;
 
@@ -190,21 +324,25 @@ namespace Civ3DECAT
                                             barrelHeight = height - dimensions.ConeHeight;
                                         }
 
-                                        // Calculate volumes
+                                        manholeData.InnerDiameter = dimensions.BarrelInnerDiameter;
+                                        manholeData.WallThickness = dimensions.BarrelWallThickness;
+
                                         double barrelOuterRadius = dimensions.BarrelInnerDiameter / 2 + dimensions.BarrelWallThickness;
                                         double barrelInnerRadius = dimensions.BarrelInnerDiameter / 2;
 
-                                        // Wall volume (barrel section)
                                         double wallVolume = Math.PI * (Math.Pow(barrelOuterRadius, 2) - Math.Pow(barrelInnerRadius, 2)) * barrelHeight;
+                                        manholeData.WallVolume = wallVolume;
+                                        networkWallVolume += wallVolume;
 
-                                        // Bottom slab volume
                                         double bottomSlabVolume = Math.PI * Math.Pow(barrelOuterRadius, 2) * dimensions.BottomSlab;
+                                        manholeData.BottomSlabVolume = bottomSlabVolume;
+                                        networkBottomSlabVolume += bottomSlabVolume;
 
-                                        // Cover volume
                                         double coverRadius = dimensions.CoverDiameter / 2;
                                         double coverVolume = Math.PI * Math.Pow(coverRadius, 2) * dimensions.CoverThickness;
+                                        manholeData.CoverVolume = coverVolume;
+                                        networkCoverVolume += coverVolume;
 
-                                        // Cone volume (if present)
                                         double coneVolume = 0;
                                         if (dimensions.HasCone)
                                         {
@@ -213,7 +351,6 @@ namespace Civ3DECAT
                                             coneVolume = (1.0 / 3.0) * Math.PI * dimensions.ConeHeight *
                                                         (Math.Pow(coneBottomRadius, 2) + coneBottomRadius * coneTopRadius + Math.Pow(coneTopRadius, 2));
 
-                                            // Subtract inner cone volume
                                             double innerConeBottomRadius = barrelInnerRadius;
                                             double innerConeTopRadius = dimensions.ConeTopDiameter / 2 - dimensions.BarrelWallThickness;
                                             if (innerConeTopRadius < 0) innerConeTopRadius = 0;
@@ -223,8 +360,9 @@ namespace Civ3DECAT
 
                                             coneVolume -= innerConeVolume;
                                         }
+                                        manholeData.ConeVolume = coneVolume;
+                                        networkConeVolume += coneVolume;
 
-                                        // Inner void volume
                                         double voidVolume = Math.PI * Math.Pow(barrelInnerRadius, 2) * barrelHeight;
                                         if (dimensions.HasCone)
                                         {
@@ -237,62 +375,42 @@ namespace Civ3DECAT
 
                                             voidVolume += innerConeVolume;
                                         }
+                                        manholeData.VoidVolume = voidVolume;
+                                        networkVoidVolume += voidVolume;
 
-                                        // Total concrete volume
                                         double totalConcrete = wallVolume + bottomSlabVolume + coverVolume + coneVolume;
+                                        manholeData.TotalConcreteVolume = totalConcrete;
+                                        networkConcreteVolume += totalConcrete;
 
-                                        // Add to totals
-                                        totalWallVolume += wallVolume;
-                                        totalBottomSlabVolume += bottomSlabVolume;
-                                        totalCoverVolume += coverVolume;
-                                        totalConeVolume += coneVolume;
-                                        totalVoidVolume += voidVolume;
-                                        totalConcreteVolume += totalConcrete;
-
-                                        // Add details to report
-                                        resultBuilder.AppendLine($"Manhole: {structure.Name}");
-                                        resultBuilder.AppendLine($"  Height: {height:F2} m");
-                                        resultBuilder.AppendLine($"  Inner Diameter: {dimensions.BarrelInnerDiameter:F2} m");
-                                        resultBuilder.AppendLine($"  Wall Thickness: {dimensions.BarrelWallThickness:F2} m");
-                                        resultBuilder.AppendLine($"  Wall Volume: {wallVolume:F2} m³");
-                                        resultBuilder.AppendLine($"  Bottom Slab Volume: {bottomSlabVolume:F2} m³");
-                                        resultBuilder.AppendLine($"  Cover Volume: {coverVolume:F2} m³");
-
-                                        if (dimensions.HasCone)
-                                        {
-                                            resultBuilder.AppendLine($"  Cone Volume: {coneVolume:F2} m³");
-                                        }
-
-                                        resultBuilder.AppendLine($"  Inner Void Volume: {voidVolume:F2} m³");
-                                        resultBuilder.AppendLine($"  Total Concrete Volume: {totalConcrete:F2} m³");
-                                        resultBuilder.AppendLine();
+                                        reportForm.AddManholeData(manholeData);
                                     }
                                 }
                             }
+
+                            if (networkManholeCount > 0)
+                            {
+                                reportForm.AddManholeData(new ManholeVolumeData
+                                {
+                                    Name = $"TOTAL ({networkManholeCount})",
+                                    Network = network.Name,
+                                    WallVolume = networkWallVolume,
+                                    BottomSlabVolume = networkBottomSlabVolume,
+                                    CoverVolume = networkCoverVolume,
+                                    ConeVolume = networkConeVolume,
+                                    VoidVolume = networkVoidVolume,
+                                    TotalConcreteVolume = networkConcreteVolume,
+                                    IsTotal = true
+                                });
+                            }
                         }
-
-                        // Add summary
-                        resultBuilder.AppendLine("SUMMARY");
-                        resultBuilder.AppendLine("-------");
-                        resultBuilder.AppendLine($"Total Manholes: {totalManholes}");
-
-                        if (totalWallVolume > 0)
-                        {
-                            // Only show component volumes if we calculated them
-                            resultBuilder.AppendLine($"Total Wall Volume: {totalWallVolume:F2} m³");
-                            resultBuilder.AppendLine($"Total Bottom Slab Volume: {totalBottomSlabVolume:F2} m³");
-                            resultBuilder.AppendLine($"Total Cover Volume: {totalCoverVolume:F2} m³");
-                            resultBuilder.AppendLine($"Total Cone Volume: {totalConeVolume:F2} m³");
-                            resultBuilder.AppendLine($"Total Void Volume: {totalVoidVolume:F2} m³");
-                        }
-
-                        resultBuilder.AppendLine($"Total Concrete Volume: {totalConcreteVolume:F2} m³");
-
-                        // Display the results
-                        Autodesk.AutoCAD.ApplicationServices.Application.ShowAlertDialog(resultBuilder.ToString());
 
                         transaction.Commit();
                     }
+
+                    // Show the Windows Forms dialog
+                    WinForms.Application.EnableVisualStyles();
+                    reportForm.ShowDialog();
+
                 }
                 catch (Autodesk.AutoCAD.Runtime.Exception ex)
                 {
@@ -309,7 +427,6 @@ namespace Civ3DECAT
                 try
                 {
                     // Try to determine if it's a manhole from the structure properties
-                    // Fix for CS8600: Use string.Empty instead of null
                     string structureType = GetStructureProperty(structure, "PartType")?.ToLower() ?? string.Empty;
                     string structureFamily = GetStructureProperty(structure, "PartFamily")?.ToLower() ?? string.Empty;
                     string structureName = structure.Name.ToLower();
@@ -377,7 +494,6 @@ namespace Civ3DECAT
                     else
                     {
                         // Try to get from part size
-                        // Fix for CS8600: Use string.Empty instead of null
                         string partSize = GetStructureProperty(structure, "PartSizeName") ?? string.Empty;
                         if (!string.IsNullOrEmpty(partSize))
                         {
@@ -393,7 +509,6 @@ namespace Civ3DECAT
                     }
 
                     // Try to determine if it has a cone and its dimensions
-                    // Fix for CS8600: Use string.Empty instead of null
                     string structureType = GetStructureProperty(structure, "PartType") ?? string.Empty;
                     dimensions.HasCone = structureType.ToLower().Contains("cone") ||
                                         structureType.ToLower().Contains("eccentric");
