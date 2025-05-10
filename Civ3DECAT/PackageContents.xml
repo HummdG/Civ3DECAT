@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="1.0" ProductCode="8772B807-F6BF-49FD-AF81-423A5E86EA99" Name="Civ3DECAT">
+	<CompanyDetails Name="Arkalith" />
+	<Components Description="ECAT Plugin for Civ3D">
+		<RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R20" SeriesMax="R26"/>
+		<ComponentEntry AppName="ECAT Civil 3D"
+							Version="1.0.0"
+							ModuleName="./Contents/Civ3DECAT.dll"
+							AppDescription="ECAT Civil 3D"
+							LoadOnAutoCADStartup="True" />
+	</Components>
+</ApplicationPackage>

@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Debug2026": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Autodesk\\AutoCAD 2026\\acad.exe",
+      "commandLineArgs": "\"C:\\Program Files\\Autodesk\\AutoCAD 2026\\acad.exe\" /product C3D /language en-US"
+    }
+  }
+}
