@@ -63,7 +63,7 @@ namespace Civ3DECAT
             // Create Manhole Volumes button
             RibbonButton volumeButton = new RibbonButton
             {
-                Text = "Manhole Volumes",
+                Text = "ECAT",
                 ShowText = true,
                 ShowImage = true,
                 Size = RibbonItemSize.Large,
